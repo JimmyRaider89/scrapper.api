@@ -11,4 +11,4 @@ Simply pull down the repo and
 
 Run in IISExpress http://localhost:64693
 
-Run in Docker http://localhost:32768
+Run in Docker http://localhost:[your port number here]
