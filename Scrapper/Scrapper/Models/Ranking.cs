@@ -5,7 +5,7 @@ namespace Scrapper
 {
     public class Ranking
     { 
-        public int[] Postiions { get; set; }
+        public int[] Positions { get; set; }
 
         public SearchEngine SearchEngine { get; set; }
 

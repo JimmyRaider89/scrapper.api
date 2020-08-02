@@ -14,9 +14,6 @@ namespace Scrapper.Scrappers
         private readonly HttpClient _httpClient;
         private readonly SearchEngineConfig _config;
 
-        private static readonly Regex _rx = new Regex(@"<a\s+(?:[^>]*?\s+)?href=([""'])(.*?)\1", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-        private static readonly int _maxResults = 100;
-
         public Bing(IHttpClientFactory clientFactory, IOptionsSnapshot<SearchEngineConfig> options)
         {
             _httpClient = clientFactory.CreateClient();
@@ -30,7 +27,7 @@ namespace Scrapper.Scrappers
 
             do
             {
-                var requestUrl = string.Format(_config.Url, keyWords, _config.Count, urls.Count);
+                var requestUrl = string.Format(_config.Url, keyWords, _config.RecordsPerRequest, urls.Count);
                 var request = new HttpRequestMessage(HttpMethod.Get, requestUrl);
                 var response = await _httpClient.SendAsync(request);
 
@@ -76,16 +73,16 @@ namespace Scrapper.Scrappers
                         {
                             var closingIndex = html.IndexOf("</li>", openingLiIndex);
                             var block = html.Substring(openingLiIndex, closingIndex - openingLiIndex);
-                            var result = _rx.Match(block);
-                            if (result.Success)
+                            var result = RegExHelpers.FindUrl(block);
+                            if (result != null)
                             {
-                                urls.Add(result.Groups[2].Value);
-                                if (urls.Count == _maxResults)
-                                {
-                                    break;
-                                }
+                                urls.Add(result);
                             }
                             openingLiIndex++;
+                        }
+                        if(urls.Count >= _config.MaxMatchesPerRequest)
+                        {
+                            break;
                         }
                     } while (openingLiIndex != -1);
                 }
@@ -96,7 +93,7 @@ namespace Scrapper.Scrappers
                 }
                 // if no urls have been added then it means the algorithim is now out of date
                 // we need to exit this loop otherwise it will continue forever.
-            } while (urls.Count != 0 && urls.Count < _maxResults);
+            } while (urls.Count != 0 && urls.Count < _config.MaxMatchesPerRequest);
 
             // Finally work out any matches
             List<int> postiions = new List<int>();
@@ -113,7 +110,7 @@ namespace Scrapper.Scrappers
 
             return new Ranking
             {
-                Postiions = postiions.ToArray(),
+                Positions = postiions.ToArray(),
                 SearchEngine = SearchEngine.Bing,
                 KeyWords = keyWords
             };

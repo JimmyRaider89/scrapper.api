@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -29,6 +30,17 @@ namespace Scrapper
                 .AddScoped<IScrapper, Google>(s => s.GetService<Google>());
             services.AddScoped<Bing>()
                         .AddScoped<IScrapper, Bing>(s => s.GetService<Bing>());
+
+
+            var corsBuilder = new CorsPolicyBuilder();
+            corsBuilder.AllowAnyHeader();
+            corsBuilder.AllowAnyMethod();
+            corsBuilder.AllowAnyOrigin();
+
+            services.AddCors(options =>
+            {
+                options.AddPolicy("SiteCorsPolicy", corsBuilder.Build());
+            });
         }
 
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
@@ -39,9 +51,7 @@ namespace Scrapper
             }
 
             app.UseRouting();
-
-            app.UseAuthorization();
-
+            app.UseCors("SiteCorsPolicy");
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapControllers();

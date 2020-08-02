@@ -24,39 +24,40 @@ namespace Scrapper.Scrappers
         {
             var urls = new List<string>();
 
-            var requestUrl = string.Format(_config.Url, keyWords, _config.Count);
+            // Google allows the return of 100 records in one call
+            var requestUrl = string.Format(_config.Url, keyWords, _config.RecordsPerRequest);
             var request = new HttpRequestMessage(HttpMethod.Get, requestUrl);
-            // Google allows the return of 100+ records
+
             var response = await _httpClient.SendAsync(request);
 
             if (response.IsSuccessStatusCode)
             {
                 var html = response.Content.ReadAsStringAsync().Result;
-                //await System.IO.File.ReadAllTextAsync("c:\\temp\\google.html");
 
                 /*
-                 A SEACH RESULT record in GOOGLE looks like below.  This will ignore any ADs and "People Also Ask" sections
+                 A SEACH RESULT record in GOOGLE seems to take many forms
 
-                 <div class="g">
-                   <!--m-->
-                   <div class="rc" data-hveid="CDQQAA" data-ved="2ahUKEwjRwIrA8vnqAhXWWisKHazbBFYQFSgAMAV6BAg0EAA">
-                      <div class="r">
-                         <a href="https://www.nswlrs.com.au/Access-Titling-Information" ping="/url?sa=t&amp;source=web&amp;rct=j&amp;url=https://www.nswlrs.com.au/Access-Titling-Information&amp;ved=2ahUKEwjRwIrA8vnqAhXWWisKHazbBFYQFjAFegQINBAB">
-                            <br>
-                            <h3 class="LC20lb DKV0Md">Access Titling Information - NSW Land Registry Services</h3>
-                            <div class="TbwUpd NJjxre"><cite class="iUh30 bc tjvcx">www.nswlrs.com.au<span class="eipWBe"> › Access-Titling-Information</span></cite></div>
-                         </a>
-                        ... [TRIMMED FOR BREVITY]
+                - When you browse search results are wrapped in a <div class="g">
+                - When calling via a non browser the same div looks like <div class="kCrYT"> 
+                
+                I suspect this divs id changes overtime to keep us busy - and to use the API so instead searching on /href="/url?q=
+
+                <div class="kCrYT"><a
+                    href="/url?q=https://www.landata.vic.gov.au/&amp;sa=U&amp;ved=2ahUKEwianbWRg_zqAhVVeX0KHbouBuoQFjAAegQIZRAB&amp;usg=AOvVaw249Kthl-7fQPbAlMh0Xeny">
+                    <h3 class="zBAuLc">
+                    <div class="BNeawe vvjwJb AP7Wnd">Landata</div>
+                    </h3>
+                    <div class="BNeawe UPmit AP7Wnd">https://www.landata.vic.gov.au</div>
+                    </a>
+                </div>
               */
 
-                var openingDivIndex = 0;
+                var anchorStartIndex = 0;
                 do
                 {
-                    openingDivIndex = html.IndexOf("<div class=\"r\">", openingDivIndex);
-                    if (openingDivIndex != -1)
+                    anchorStartIndex = html.IndexOf("<a href\x3d\x22/url?q\x3d", anchorStartIndex);
+                    if (anchorStartIndex != -1)
                     {
-                        // find the first anchor tag
-                        var anchorStartIndex = html.IndexOf("<a href=\"", openingDivIndex);
                         var anchorClosingIndex = html.IndexOf(">", anchorStartIndex);
 
                         var block = html.Substring(anchorStartIndex, anchorClosingIndex - anchorStartIndex);
@@ -65,9 +66,14 @@ namespace Scrapper.Scrappers
                         {
                             urls.Add(result);
                         }
-                        openingDivIndex++;
+                        anchorStartIndex++;
                     }
-                } while (openingDivIndex != -1);
+
+                    if (urls.Count >= _config.MaxMatchesPerRequest)
+                    {
+                        break;
+                    }
+                } while (anchorStartIndex != -1);
             }
             else
             {
@@ -90,7 +96,7 @@ namespace Scrapper.Scrappers
 
             return new Ranking
             {
-                Postiions = postiions.ToArray(),
+                Positions = postiions.ToArray(),
                 SearchEngine = SearchEngine.Google,
                 KeyWords = keyWords
             };
